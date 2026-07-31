@@ -17,7 +17,6 @@ services:
           VITE_REVERB_PORT: ${REVERB_PORT}
           VITE_REVERB_SCHEME: ${REVERB_SCHEME}
     environment:
-      - SERVICE_URL_TRYPOST_80
       - 'APP_NAME=${APP_NAME:-TryPost}'
       - 'APP_DEBUG=${APP_DEBUG:-false}'
       - 'APP_KEY=${APP_KEY:?}'
