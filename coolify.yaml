@@ -1,0 +1,156 @@
+# documentation: https://docs.trypost.it/
+# slogan: The AI social media scheduler for creators, startups & agencies.
+# category: analytics
+# tags: post everywhere, social media, planning, automations
+# logo: svgs/trypost.svg
+# port: 80
+
+services:
+  trypost:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: production
+      args:
+          VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+          VITE_REVERB_HOST: ${REVERB_HOST}
+          VITE_REVERB_PORT: ${REVERB_PORT}
+          VITE_REVERB_SCHEME: ${REVERB_SCHEME}
+    environment:
+      - SERVICE_URL_TRYPOST_80
+      - 'APP_NAME=${APP_NAME:-TryPost}'
+      - 'APP_DEBUG=${APP_DEBUG:-false}'
+      - 'APP_KEY=${APP_KEY:?}'
+      - 'APP_URL=${SERVICE_URL_TRYPOST}'
+      - SELF_HOSTED=true
+      - TRYPOST_TARGET=production
+      - DB_CONNECTION=pgsql
+      - DB_HOST=pgsql
+      - DB_PORT=5432
+      - DB_DATABASE=trypost
+      - 'DB_USERNAME=${SERVICE_USER_POSTGRES}'
+      - 'DB_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+      - CACHE_STORE=redis
+      - SESSION_DRIVER=database
+      - BROADCAST_CONNECTION=reverb
+      - 'REVERB_HOST=${SERVICE_FQDN_TRYPOST}'
+      - 'REVERB_APP_ID="1001"'
+      - REVERB_APP_KEY=trypost-reverb-key
+      - 'REVERB_APP_SECRET=${REVERB_APP_SECRET:?}'
+      - REVERB_SCHEME=https
+      - REVERB_PORT=443
+      - FILESYSTEM_DISK=public
+      - 'MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:?}'
+      - 'MAIL_FROM_NAME=${MAIL_FROM_NAME:-TryPost}'
+      - MAIL_MAILER=smtp
+      - 'MAIL_HOST=${MAIL_HOST:?}'
+      - 'MAIL_PORT=${MAIL_PORT:-587}'
+      - 'MAIL_USERNAME=${MAIL_USERNAME:?}'
+      - 'MAIL_PASSWORD=${MAIL_PASSWORD:?}'
+      - 'MAIL_SCHEME=${MAIL_SCHEME:-tls}'
+      - 'LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}'
+      - 'LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}'
+      - 'X_CLIENT_ID=${X_CLIENT_ID}'
+      - 'X_CLIENT_SECRET=${X_CLIENT_SECRET}'
+      - 'FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}'
+      - 'FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}'
+      - 'INSTAGRAM_CLIENT_ID=${INSTAGRAM_CLIENT_ID}'
+      - 'INSTAGRAM_CLIENT_SECRET=${INSTAGRAM_CLIENT_SECRET}'
+      - 'THREADS_CLIENT_ID=${THREADS_CLIENT_ID}'
+      - 'THREADS_CLIENT_SECRET=${THREADS_CLIENT_SECRET}'
+      - 'TIKTOK_CLIENT_ID=${TIKTOK_CLIENT_ID}'
+      - 'TIKTOK_CLIENT_SECRET=${TIKTOK_CLIENT_SECRET}'
+      - 'PINTEREST_CLIENT_ID=${PINTEREST_CLIENT_ID}'
+      - 'PINTEREST_CLIENT_SECRET=${PINTEREST_CLIENT_SECRET}'
+      - 'GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}'
+      - 'GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}'
+      - 'TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}'
+      - 'TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}'
+      - 'TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}'
+      - 'DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}'
+      - 'DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}'
+      - 'DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}'
+      - 'OPENAI_API_KEY=${OPENAI_API_KEY}'
+      - 'ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}'
+      - 'GEMINI_API_KEY=${GEMINI_API_KEY}'
+      - 'XAI_API_KEY=${XAI_API_KEY}'
+      - 'DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}'
+      - 'GROQ_API_KEY=${GROQ_API_KEY}'
+      - 'MISTRAL_API_KEY=${MISTRAL_API_KEY}'
+      - 'OPENROUTER_API_KEY=${OPENROUTER_API_KEY}'
+      - 'COHERE_API_KEY=${COHERE_API_KEY}'
+      - 'JINA_API_KEY=${JINA_API_KEY}'
+      - 'VOYAGEAI_API_KEY=${VOYAGEAI_API_KEY}'
+      - 'ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}'
+      - 'OLLAMA_BASE_URL=${OLLAMA_BASE_URL}'
+      - 'AI_TEXT_PROVIDER=${AI_TEXT_PROVIDER}'
+      - 'AI_TEXT_MODEL=${AI_TEXT_MODEL}'
+      - 'AI_IMAGE_PROVIDER=${AI_IMAGE_PROVIDER}'
+      - 'AI_AUDIO_PROVIDER=${AI_AUDIO_PROVIDER}'
+      - 'UNSPLASH_ACCESS_KEY=${UNSPLASH_ACCESS_KEY}'
+      - 'UNSPLASH_SECRET_KEY=${UNSPLASH_SECRET_KEY}'
+      - 'GIPHY_API_KEY=${GIPHY_API_KEY}'
+      - 'LINKEDIN_CLIENT_REDIRECT="${APP_URL}/accounts/linkedin/callback"'
+      - 'LINKEDIN_PAGE_CLIENT_REDIRECT="${APP_URL}/accounts/linkedin-page/callback"'
+      - 'X_CLIENT_REDIRECT="${APP_URL}/accounts/x/callback"'
+      - 'FACEBOOK_CLIENT_REDIRECT="${APP_URL}/accounts/facebook/callback"'
+      - 'INSTAGRAM_CLIENT_REDIRECT="${APP_URL}/accounts/instagram/callback"'
+      - 'THREADS_CLIENT_REDIRECT="${APP_URL}/accounts/threads/callback"'
+      - 'TIKTOK_CLIENT_REDIRECT="${APP_URL}/accounts/tiktok/callback"'
+      - 'GOOGLE_CLIENT_REDIRECT="${APP_URL}/accounts/youtube/callback"'
+      - 'PINTEREST_CLIENT_REDIRECT="${APP_URL}/accounts/pinterest/callback"'
+      - 'DISCORD_CLIENT_REDIRECT="${APP_URL}/accounts/discord/callback"'
+    volumes:
+      - storage:/var/www/html/storage/app
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - traefik.http.routers.trypost-wss.entrypoints=https
+      - 'traefik.http.routers.trypost-wss.rule=Host(`${SERVICE_FQDN_TRYPOST}`) && HeaderRegexp(`Connection`, `(?i).*upgrade.*`) && HeaderRegexp(`Upgrade`, `(?i)websocket`)'
+      - traefik.http.routers.trypost-wss.service=trypost-wss
+      - traefik.http.routers.trypost-wss.tls=true
+      - traefik.http.services.trypost-wss.loadbalancer.server.port=8080
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl -fsS http://127.0.0.1/up || exit 1'
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  pgsql:
+    image: postgres:16-alpine
+    container_name: trypost-pgsql
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=trypost
+      - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
+      - 'POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U trypost -d trypost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: trypost-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
