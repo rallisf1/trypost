@@ -12,6 +12,8 @@ services:
       dockerfile: docker/Dockerfile
       target: production
       args:
+          UID: ${UID:-1000}
+          GID: ${GID:-1000}
           VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
           VITE_REVERB_HOST: ${REVERB_HOST}
           VITE_REVERB_PORT: ${REVERB_PORT}
