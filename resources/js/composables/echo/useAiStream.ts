@@ -42,13 +42,13 @@ export const useAiStream = () => {
         subscribedName = channelName;
 
         echo().private(channelName)
-            .listen('.text_delta', (e: TextDeltaEvent) => {
+            .listen('text_delta', (e: TextDeltaEvent) => {
                 text.value += e.delta ?? '';
             })
-            .listen('.stream_end', () => {
+            .listen('stream_end', () => {
                 status.value = 'completed';
             })
-            .listen('.error', (e: ErrorEvent) => {
+            .listen('error', (e: ErrorEvent) => {
                 status.value = 'failed';
                 errorMessage.value = e?.message ?? 'AI generation failed';
             });
