@@ -37,10 +37,10 @@ services:
       - BROADCAST_CONNECTION=reverb
       - 'REVERB_HOST=${SERVICE_FQDN_TRYPOST}'
       - 'REVERB_APP_ID="1001"'
-      - REVERB_APP_KEY=trypost-reverb-key
+      - 'REVERB_APP_KEY=${REVERB_APP_KEY:-trypost-reverb-key}'
       - 'REVERB_APP_SECRET=${REVERB_APP_SECRET:?}'
-      - REVERB_SCHEME=https
-      - REVERB_PORT=443
+      - 'REVERB_SCHEME=${REVERB_SCHEME:-https}'
+      - 'REVERB_PORT=${REVERB_PORT:-443}'
       - FILESYSTEM_DISK=public
       - 'MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:?}'
       - 'MAIL_FROM_NAME=${MAIL_FROM_NAME:-TryPost}'
