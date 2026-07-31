@@ -111,7 +111,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.http.routers.trypost-wss.entrypoints=https
-      - 'traefik.http.routers.trypost-wss.rule=Host(`${SERVICE_FQDN_TRYPOST}`) && HeaderRegexp(`Connection`, `(?i).*upgrade.*`) && HeaderRegexp(`Upgrade`, `(?i)websocket`)'
+      - 'traefik.http.routers.trypost-wss.rule=HeaderRegexp(`Connection`, `(?i).*upgrade.*`) && HeaderRegexp(`Upgrade`, `(?i)websocket`)'
       - traefik.http.routers.trypost-wss.service=trypost-wss
       - traefik.http.routers.trypost-wss.tls=true
       - traefik.http.services.trypost-wss.loadbalancer.server.port=8080
