@@ -71,6 +71,8 @@ return [
         'page_title' => 'Inloggen',
         'email' => 'E-mailadres',
         'password' => 'Wachtwoord',
+        'show_password' => 'Wachtwoord tonen',
+        'hide_password' => 'Wachtwoord verbergen',
         'forgot_password' => 'Wachtwoord vergeten?',
         'remember_me' => 'Ingelogd blijven',
         'submit' => 'Inloggen',
@@ -136,6 +138,9 @@ return [
         'login_prompt' => 'Log in of maak een account aan om deze uitnodiging te accepteren.',
         'log_in' => 'Inloggen',
         'create_account' => 'Account aanmaken',
+        'expired_title' => 'Deze uitnodiging is niet meer geldig',
+        'expired_description' => 'De workspace van deze uitnodiging is verwijderd. Vraag de accounteigenaar om een nieuwe uitnodiging als je nog toegang nodig hebt.',
+        'expired_action' => 'Naar home',
     ],
 
 ];

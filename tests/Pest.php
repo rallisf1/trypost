@@ -9,6 +9,8 @@ use App\Models\Plan;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\BrowserTestCase;
 use Tests\TestCase;
 
@@ -30,6 +32,19 @@ pest()->extend(TestCase::class)
 pest()->extend(BrowserTestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Browser');
+
+/*
+|--------------------------------------------------------------------------
+| Test Impact Analysis
+|--------------------------------------------------------------------------
+|
+| Only re-run tests affected by local changes, replaying cached results for
+| the rest. Scoped to local runs via "locally()" — automatically skipped on
+| CI (or when the "--ci" flag is passed), which always runs the full suite.
+|
+*/
+
+pest()->tia()->locally();
 
 /*
 |--------------------------------------------------------------------------
@@ -159,4 +174,161 @@ function subscribeAccount(Account $account): void
         'stripe_status' => 'active',
         'stripe_price' => 'price_123',
     ]);
+}
+
+/**
+ * Insert an OAuth client suitable for MCP connection tests.
+ */
+function mcpOauthClient(string $name = 'My Agent'): string
+{
+    $id = (string) Str::uuid();
+
+    DB::table('oauth_clients')->insert([
+        'id' => $id,
+        'name' => $name,
+        'secret' => null,
+        'provider' => null,
+        'redirect_uris' => '[]',
+        'grant_types' => json_encode(['authorization_code', 'refresh_token']),
+        'revoked' => false,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return $id;
+}
+
+/**
+ * @return array<string, string>
+ */
+function oauthAuthorizeQuery(
+    string $clientId,
+    string $redirectUri = 'https://client.example/callback',
+    string $prompt = 'consent',
+): array {
+    $verifier = Str::random(64);
+    $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+
+    return [
+        'client_id' => $clientId,
+        'redirect_uri' => $redirectUri,
+        'response_type' => 'code',
+        'scope' => 'mcp:use',
+        'state' => 'test-state',
+        'code_challenge' => $challenge,
+        'code_challenge_method' => 'S256',
+        'prompt' => $prompt,
+    ];
+}
+
+/**
+ * Create an active OAuth access token for MCP connection tests.
+ *
+ * @param  list<string>  $scopes
+ */
+function mcpAccessToken(
+    User $user,
+    string $clientId,
+    ?Workspace $workspace = null,
+    array $scopes = ['mcp:use'],
+): AccessToken {
+    $token = new AccessToken;
+    $token->forceFill([
+        'id' => Str::random(80),
+        'user_id' => $user->id,
+        'client_id' => $clientId,
+        'workspace_id' => $workspace?->id,
+        'name' => 'MCP',
+        'scopes' => $scopes,
+        'revoked' => false,
+        'expires_at' => now()->addYear(),
+    ])->save();
+
+    return $token->refresh();
+}
+
+/**
+ * Issue a Passport token, attach it to a dedicated MCP OAuth client, and bind
+ * it to a workspace — the post-#222 shape used by middleware / MCP endpoint tests.
+ *
+ * @param  list<string>  $scopes
+ * @return array{token: AccessToken, plain_token: string}
+ */
+function mcpBearerToken(User $user, Workspace $workspace, array $scopes = ['mcp:use']): array
+{
+    $result = $user->createToken('MCP', $scopes);
+    $token = AccessToken::query()->findOrFail($result->token->id);
+
+    // Reassign to a dedicated MCP client so we never mutate Passport's shared
+    // personal-access client (which would poison PAT fixtures in the same run).
+    $token->forceFill([
+        'client_id' => mcpOauthClient(),
+        'workspace_id' => $workspace->id,
+    ])->saveQuietly();
+
+    return [
+        'token' => $token->refresh(),
+        'plain_token' => $result->accessToken,
+    ];
+}
+
+/**
+ * Move a member onto a shared account (stranded-member / invitee fixture).
+ *
+ * @return array{
+ *     owner: User,
+ *     member: User,
+ *     shared_workspaces: list<Workspace>
+ * }
+ */
+function strandedMemberOnSharedAccount(
+    int $sharedWorkspaces = 0,
+    bool $attachMember = true,
+    bool $attachMemberToAll = true,
+    bool $setMemberCurrent = false,
+    ?User $owner = null,
+    ?string $memberEmail = null,
+): array {
+    $owner ??= User::factory()->create();
+    $member = User::factory()->create(array_filter([
+        'email' => $memberEmail,
+    ]));
+
+    // Closed-account model: the member's empty signup shell is gone after
+    // accepting the invite, so drop it here to match the real state.
+    $member->account?->delete();
+
+    $shared = [];
+
+    for ($i = 0; $i < $sharedWorkspaces; $i++) {
+        $workspace = Workspace::factory()->create([
+            'account_id' => $owner->account_id,
+            'user_id' => $owner->id,
+        ]);
+
+        $workspace->members()->syncWithoutDetaching([
+            $owner->id => ['role' => Role::Admin->value],
+        ]);
+
+        if ($attachMember && ($attachMemberToAll || $i === 0)) {
+            $workspace->members()->attach($member->id, [
+                'role' => Role::Member->value,
+            ]);
+        }
+
+        $shared[] = $workspace;
+    }
+
+    $member->update([
+        'account_id' => $owner->account_id,
+        'current_workspace_id' => ($setMemberCurrent && $shared !== [])
+            ? $shared[0]->id
+            : null,
+    ]);
+
+    return [
+        'owner' => $owner->fresh(),
+        'member' => $member->fresh(),
+        'shared_workspaces' => $shared,
+    ];
 }

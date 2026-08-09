@@ -62,6 +62,7 @@ test('create workspace shows form for user with no workspaces', function () {
         ->component('workspaces/Create', false)
         ->has('availableContentLanguages', count(ContentLanguage::cases()))
         ->where('availableContentLanguages.0', ['value' => 'en', 'label' => 'English', 'englishName' => 'English'])
+        ->where('availableContentLanguages.1', ['value' => 'uk', 'label' => 'Українська', 'englishName' => 'Ukrainian'])
     );
 });
 
@@ -166,6 +167,62 @@ test('switch workspace returns 403 for workspace user does not belong to', funct
     $response->assertForbidden();
 });
 
+test('switch workspace returns 403 for personal workspace after joining another account', function () {
+    $sharedOwner = User::factory()->create();
+    $invitee = User::factory()->create();
+    $personalAccountId = $invitee->account_id;
+
+    $personalWorkspace = Workspace::factory()->create([
+        'account_id' => $personalAccountId,
+        'user_id' => $invitee->id,
+    ]);
+    $personalWorkspace->members()->attach($invitee->id, ['role' => Role::Admin->value]);
+
+    $sharedWorkspace = Workspace::factory()->create([
+        'account_id' => $sharedOwner->account_id,
+        'user_id' => $sharedOwner->id,
+    ]);
+    $sharedWorkspace->members()->attach($invitee->id, ['role' => Role::Member->value]);
+    $invitee->update([
+        'account_id' => $sharedOwner->account_id,
+        'current_workspace_id' => $sharedWorkspace->id,
+    ]);
+
+    $response = $this->actingAs($invitee)->post(route('app.workspaces.switch', $personalWorkspace));
+
+    $response->assertForbidden();
+    expect($invitee->fresh()->current_workspace_id)->toBe($sharedWorkspace->id);
+});
+
+test('workspace index only lists workspaces on the current account', function () {
+    $sharedOwner = User::factory()->create();
+    $invitee = User::factory()->create();
+    $personalAccountId = $invitee->account_id;
+
+    $personalWorkspace = Workspace::factory()->create([
+        'account_id' => $personalAccountId,
+        'user_id' => $invitee->id,
+    ]);
+    $personalWorkspace->members()->attach($invitee->id, ['role' => Role::Admin->value]);
+
+    $sharedWorkspace = Workspace::factory()->create([
+        'account_id' => $sharedOwner->account_id,
+        'user_id' => $sharedOwner->id,
+    ]);
+    $sharedWorkspace->members()->attach($invitee->id, ['role' => Role::Member->value]);
+    $invitee->update([
+        'account_id' => $sharedOwner->account_id,
+        'current_workspace_id' => $sharedWorkspace->id,
+    ]);
+
+    $response = $this->actingAs($invitee)->get(route('app.workspaces.index'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->has('workspaces', 1)
+        ->where('workspaces.0.id', $sharedWorkspace->id));
+});
+
 // Settings tests
 test('workspace settings requires authentication', function () {
     $response = $this->get(route('app.workspace.settings'));
@@ -180,6 +237,72 @@ test('workspace settings shows the workspace settings page', function () {
     $response->assertInertia(fn ($page) => $page
         ->component('settings/workspace/Workspace', false)
         ->has('workspace')
+        ->where('isOnlyWorkspace', false)
+        ->where('otherMemberCount', 0)
+    );
+});
+
+test('workspace settings marks only workspace in saas mode', function () {
+    config(['trypost.self_hosted' => false]);
+    $this->user->account->subscriptions()->create([
+        'type' => Account::SUBSCRIPTION_NAME,
+        'stripe_id' => 'sub_test_'.fake()->uuid(),
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_123',
+    ]);
+
+    $response = $this->actingAs($this->user)->get(route('app.workspace.settings'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('isOnlyWorkspace', true)
+    );
+});
+
+test('workspace settings does not mark only workspace when account has more than one', function () {
+    config(['trypost.self_hosted' => false]);
+    $this->user->account->subscriptions()->create([
+        'type' => Account::SUBSCRIPTION_NAME,
+        'stripe_id' => 'sub_test_'.fake()->uuid(),
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_123',
+    ]);
+
+    Workspace::factory()->create([
+        'account_id' => $this->user->account_id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $response = $this->actingAs($this->user)->get(route('app.workspace.settings'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('isOnlyWorkspace', false)
+    );
+});
+
+test('workspace settings otherMemberCount only includes members without another account workspace', function () {
+    $stranded = User::factory()->create([
+        'account_id' => $this->user->account_id,
+    ]);
+    $alsoOnOther = User::factory()->create([
+        'account_id' => $this->user->account_id,
+    ]);
+
+    $otherWorkspace = Workspace::factory()->create([
+        'account_id' => $this->user->account_id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $this->workspace->members()->attach($stranded->id, ['role' => Role::Member->value]);
+    $this->workspace->members()->attach($alsoOnOther->id, ['role' => Role::Member->value]);
+    $otherWorkspace->members()->attach($alsoOnOther->id, ['role' => Role::Member->value]);
+
+    $response = $this->actingAs($this->user)->get(route('app.workspace.settings'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('otherMemberCount', 1)
     );
 });
 
@@ -191,6 +314,7 @@ test('brand settings shows the brand settings page', function () {
         ->component('settings/workspace/Brand', false)
         ->has('workspace')
         ->has('availableContentLanguages', count(ContentLanguage::cases()))
+        ->where('availableContentLanguages.1', ['value' => 'uk', 'label' => 'Українська', 'englishName' => 'Ukrainian'])
     );
 });
 
@@ -302,6 +426,18 @@ test('update workspace settings persists a newly supported content language', fu
         ->assertSessionHasNoErrors();
 
     expect($this->workspace->refresh()->content_language)->toBe('fr');
+});
+
+test('update workspace settings persists Ukrainian as a content language', function () {
+    $this->actingAs($this->user)
+        ->from(route('app.workspace.brand'))
+        ->put(route('app.workspace.settings.update'), [
+            'name' => $this->workspace->name,
+            'content_language' => 'uk',
+        ])->assertRedirect(route('app.workspace.brand'))
+        ->assertSessionHasNoErrors();
+
+    expect($this->workspace->refresh()->content_language)->toBe('uk');
 });
 
 test('update workspace settings rejects an unsupported content language', function () {
@@ -439,12 +575,13 @@ test('destroy workspace deletes the workspace', function () {
 
     $response = $this->actingAs($this->user)->delete(route('app.workspaces.destroy', $this->workspace));
 
-    $response->assertRedirect(route('app.workspaces.index'));
+    $response->assertRedirect(route('app.calendar'));
+    $response->assertSessionHas('flash.success', __('workspaces.flash.deleted'));
     expect(Workspace::find($workspaceId))->toBeNull();
 });
 
-test('destroy workspace clears current workspace if deleting current', function () {
-    Workspace::factory()->create([
+test('destroy workspace falls back to another account workspace when deleting current', function () {
+    $other = Workspace::factory()->create([
         'account_id' => $this->user->account_id,
         'user_id' => $this->user->id,
     ]);
@@ -452,7 +589,8 @@ test('destroy workspace clears current workspace if deleting current', function 
     $this->actingAs($this->user)->delete(route('app.workspaces.destroy', $this->workspace));
 
     $this->user->refresh();
-    expect($this->user->current_workspace_id)->toBeNull();
+    expect($this->user->current_workspace_id)->toBe($other->id);
+    expect($this->user->belongsToWorkspace($other))->toBeTrue();
 });
 
 test('destroy workspace reassigns current to another joined workspace', function () {
@@ -487,8 +625,10 @@ test('destroy workspace allows deleting the only workspace in self-hosted mode',
 
     $response = $this->actingAs($this->user)->delete(route('app.workspaces.destroy', $this->workspace));
 
-    $response->assertRedirect(route('app.workspaces.index'));
+    $response->assertRedirect(route('app.workspaces.create'));
+    $response->assertSessionHas('flash.success', __('workspaces.flash.deleted'));
     expect(Workspace::find($workspaceId))->toBeNull();
+    expect($this->user->fresh()->current_workspace_id)->toBeNull();
 });
 
 test('destroy workspace returns 403 for non-owner', function () {
@@ -506,6 +646,42 @@ test('destroy workspace returns 403 for non-owner', function () {
     $response = $this->actingAs($otherUser)->delete(route('app.workspaces.destroy', $this->workspace));
 
     $response->assertForbidden();
+});
+
+test('destroy workspace returns 403 for workspace admin', function () {
+    Workspace::factory()->create([
+        'account_id' => $this->user->account_id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $admin = User::factory()->create([
+        'account_id' => $this->user->account_id,
+        'current_workspace_id' => $this->workspace->id,
+    ]);
+    $this->workspace->members()->attach($admin->id, ['role' => Role::Admin->value]);
+
+    $response = $this->actingAs($admin)->delete(route('app.workspaces.destroy', $this->workspace));
+
+    $response->assertForbidden();
+    expect(Workspace::find($this->workspace->id))->not->toBeNull();
+});
+
+test('destroy workspace returns 403 for workspace member', function () {
+    Workspace::factory()->create([
+        'account_id' => $this->user->account_id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $member = User::factory()->create([
+        'account_id' => $this->user->account_id,
+        'current_workspace_id' => $this->workspace->id,
+    ]);
+    $this->workspace->members()->attach($member->id, ['role' => Role::Member->value]);
+
+    $response = $this->actingAs($member)->delete(route('app.workspaces.destroy', $this->workspace));
+
+    $response->assertForbidden();
+    expect(Workspace::find($this->workspace->id))->not->toBeNull();
 });
 
 // Autofill brand tests

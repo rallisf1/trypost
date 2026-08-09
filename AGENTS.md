@@ -7,36 +7,11 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 
 ## Foundational Context
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+This application is a Laravel application running on PHP 8.5. You are an expert with the Laravel ecosystem. Always use the APIs that match the installed major version of each package — do not assume a version.
 
-- php - 8.5
-- inertiajs/inertia-laravel (INERTIA_LARAVEL) - v3
-- laravel/ai (AI) - v0
-- laravel/boost (BOOST) - v2
-- laravel/cashier (CASHIER) - v16
-- laravel/framework (LARAVEL) - v13
-- laravel/horizon (HORIZON) - v5
-- laravel/mcp (MCP) - v0
-- laravel/nightwatch (NIGHTWATCH) - v1
-- laravel/passport (PASSPORT) - v13
-- laravel/prompts (PROMPTS) - v0
-- laravel/reverb (REVERB) - v1
-- laravel/socialite (SOCIALITE) - v5
-- laravel/wayfinder (WAYFINDER) - v0
-- laravel/pail (PAIL) - v1
-- laravel/pint (PINT) - v1
-- laravel/sail (SAIL) - v1
-- laravel/telescope (TELESCOPE) - v5
-- pestphp/pest (PEST) - v5
-- phpunit/phpunit (PHPUNIT) - v13
-- @inertiajs/vue3 (INERTIA_VUE) - v3
-- tailwindcss (TAILWINDCSS) - v4
-- vue (VUE) - v3
-- @laravel/echo-vue (ECHO_VUE) - v2
-- @laravel/vite-plugin-wayfinder (WAYFINDER_VITE) - v0
-- eslint (ESLINT) - v9
-- laravel-echo (ECHO) - v2
-- prettier (PRETTIER) - v3
+Before relying on a package's API, confirm its installed version:
+- PHP packages: run `composer show --direct` to list direct dependencies with versions, or `composer show <vendor/package>` for a single package.
+- JS packages: check `package.json` for the installed versions.
 
 ## Skills Activation
 
@@ -94,6 +69,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
 3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
 4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
+
+## Project Rules
+
+- This project keeps committed, area-grouped rules in `.ai/rules` (settled decisions, non-obvious traps, standing constraints). Framework and package guidelines that only apply to specific paths (testing, frontend, components) also live there, under `.ai/rules/boost` — this is not just recorded decisions, it is load-bearing guidance you have not seen inline. Before you enter plan mode or create/edit any file, you MUST first: open @.ai/rules/index.md (it maps file globs to rule files), read every rule file whose globs cover the path(s) in scope, and run `grep -rin 'keyword' .ai/rules` to catch what a path match alone misses. Do not write code until you have read and are following every matching rule.
+- Record durable rules with `record-rule` so the next agent or teammate inherits them instead of working them out again. Pass a `glob` (e.g. `app/Http/Controllers/**`), a short `title`, and a few-line `note`. Always use `record-rule`, never your native memory or notes tool — native memory is personal and session-scoped; only `.ai/rules` is shared with the team and persists in the repo.
 
 ## Artisan
 
@@ -221,3 +201,23 @@ Vue components must have a single root element.
 - IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
 
 </laravel-boost-guidelines>
+
+# Project-Specific Rules
+
+## Stripe Checkout (env knobs)
+
+Checkout options are configured only via env — do not hardcode trial/coupon/promo behavior in controllers. All of it goes through `App\Support\Billing\ConfigureSubscriptionCheckout` (called from `StartSubscriptionCheckout`).
+
+| Env | Config | Default | Effect |
+| --- | --- | --- | --- |
+| `REQUIRE_CARD_FOR_TRIAL` | `trypost.billing.require_card_for_trial` | `true` | `true`: app access only after Stripe Checkout (no generic signup trial). `false`: generic `accounts.trial_ends_at` trial without a card |
+| `CASHIER_TRIAL_DAYS` | `cashier.trial_days` | `8` | Card-required Checkout: `trialDays(N)` for **first-time** subscribers when no first-month coupon is applied (`0` = off). Re-subscribers skip trial. No-card mode: length of the generic signup trial |
+| `STRIPE_FIRST_MONTH_COUPON_ID` | `cashier.first_month_coupon_id` | empty | Optional. When set for a qualifying first-time single-workspace checkout, applies `withCoupon` and **skips** trial. Empty = trial mode |
+| `CASHIER_ALLOW_PROMOTION_CODES` | `cashier.allow_promotion_codes` | `false` | When `true` and no coupon is applied, show the Checkout promo-code field |
+
+Standing constraints:
+- Stripe rejects `discounts` (coupon) and `allow_promotion_codes` on the same session — if both would apply, `ConfigureSubscriptionCheckout` must throw (fail loud). Never “prefer one silently.” Envs may both be set when the account does **not** qualify for the coupon (no throw).
+- A set first-month coupon wins over trial (`trialDays` is skipped for that checkout).
+- Empty coupon + card required + first-time must use `trialDays` — do **not** reintroduce a required-coupon throw.
+- Coupon qualification stays: card required, exactly one workspace, no prior real subscription (`incomplete` / `incomplete_expired` still qualify).
+- Prefer documenting durable billing decisions here (and in `CLAUDE.md`) — do **not** create a `.ai/` rules folder for this project.

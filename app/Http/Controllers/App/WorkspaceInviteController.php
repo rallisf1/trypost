@@ -4,21 +4,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\App;
 
+use App\Actions\AccessToken\RevokeWorkspaceApiKeys;
 use App\Actions\Invite\CreateInvite;
 use App\Actions\Invite\DeleteInvite;
 use App\Actions\Invite\RemoveMember;
 use App\Enums\UserWorkspace\Role as WorkspaceRole;
 use App\Http\Requests\App\Invite\StoreWorkspaceInviteRequest;
 use App\Models\Invite;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class WorkspaceInviteController extends Controller
 {
-    public function index(Request $request): Response|RedirectResponse
+    public function index(Request $request): InertiaResponse|RedirectResponse
     {
         $workspace = $request->user()->currentWorkspace;
 
@@ -70,13 +73,16 @@ class WorkspaceInviteController extends Controller
 
         if ($existingInvite) {
             return back()->withErrors([
-                'email' => 'An invite already exists for this email.',
+                'email' => __('settings.members.errors.invite_exists'),
             ]);
         }
 
-        if ($workspace->members()->where('email', $request->email)->exists()) {
+        // Accounts are closed: a user always belongs to exactly one account.
+        // Block invites to an email already registered, or two accounts would
+        // hold the same person. Employees use a dedicated work email instead.
+        if (User::query()->where('email', $request->email)->exists()) {
             return back()->withErrors([
-                'email' => 'This user is already a member of the workspace.',
+                'email' => __('settings.members.errors.email_belongs_to_account'),
             ]);
         }
 
@@ -99,7 +105,7 @@ class WorkspaceInviteController extends Controller
         $this->authorize('manageTeam', $workspace);
 
         if ($invite->account_id !== $workspace->account_id) {
-            abort(404);
+            abort(Response::HTTP_NOT_FOUND);
         }
 
         DeleteInvite::execute($invite);
@@ -161,10 +167,13 @@ class WorkspaceInviteController extends Controller
         $validated = $request->validate([
             'role' => ['required', Rule::in(array_column(WorkspaceRole::cases(), 'value'))],
         ]);
+        $role = WorkspaceRole::from(data_get($validated, 'role'));
 
         $workspace->members()->updateExistingPivot($userId, [
-            'role' => data_get($validated, 'role'),
+            'role' => $role->value,
         ]);
+
+        RevokeWorkspaceApiKeys::forUserUnlessAdmin($userId, $workspace, $role);
 
         session()->flash('flash.banner', __('settings.members.flash.role_updated'));
         session()->flash('flash.bannerStyle', 'success');

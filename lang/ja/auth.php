@@ -71,6 +71,8 @@ return [
         'page_title' => 'ログイン',
         'email' => 'メールアドレス',
         'password' => 'パスワード',
+        'show_password' => 'パスワードを表示',
+        'hide_password' => 'パスワードを隠す',
         'forgot_password' => 'パスワードをお忘れですか？',
         'remember_me' => 'ログイン状態を保持',
         'submit' => 'ログイン',
@@ -136,6 +138,9 @@ return [
         'login_prompt' => 'この招待を承諾するには、ログインまたはアカウントを作成してください。',
         'log_in' => 'ログイン',
         'create_account' => 'アカウントを作成',
+        'expired_title' => 'この招待は無効です',
+        'expired_description' => 'この招待のワークスペースは削除されました。引き続きアクセスが必要な場合は、アカウント所有者に新しい招待を依頼してください。',
+        'expired_action' => 'ホームへ',
     ],
 
 ];

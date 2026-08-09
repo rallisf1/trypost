@@ -59,6 +59,8 @@ return [
         'page_title' => 'Iniciar sesión',
         'email' => 'Correo electrónico',
         'password' => 'Contraseña',
+        'show_password' => 'Mostrar contraseña',
+        'hide_password' => 'Ocultar contraseña',
         'forgot_password' => '¿Olvidaste tu contraseña?',
         'remember_me' => 'Recuérdame',
         'submit' => 'Iniciar sesión',
@@ -124,5 +126,8 @@ return [
         'login_prompt' => 'Inicia sesión o crea una cuenta para aceptar esta invitación.',
         'log_in' => 'Iniciar sesión',
         'create_account' => 'Crear cuenta',
+        'expired_title' => 'Esta invitación ya no es válida',
+        'expired_description' => 'El workspace de esta invitación fue eliminado. Pide al propietario de la cuenta una nueva invitación si aún necesitas acceso.',
+        'expired_action' => 'Ir al inicio',
     ],
 ];

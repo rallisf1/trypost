@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use App\Enums\UserWorkspace\Role as WorkspaceRole;
 use App\Mail\WorkspaceInvite as WorkspaceInviteMail;
+use App\Models\AccessToken;
 use App\Models\Account;
 use App\Models\Invite;
 use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 beforeEach(function () {
     Mail::fake();
@@ -78,6 +81,19 @@ test('store invite creates invite and sends email', function () {
     ]);
 
     Mail::assertQueued(WorkspaceInviteMail::class);
+});
+
+test('store invite blocks an email that already belongs to a registered user', function () {
+    User::factory()->create(['email' => 'existing@example.com']);
+
+    $response = $this->actingAs($this->user)->post(route('app.invites.store'), [
+        'email' => 'existing@example.com',
+        'role' => WorkspaceRole::Member->value,
+    ]);
+
+    $response->assertSessionHasErrors('email');
+    $this->assertDatabaseMissing('invites', ['email' => 'existing@example.com']);
+    Mail::assertNothingQueued();
 });
 
 test('store invite requires a role', function () {
@@ -193,6 +209,22 @@ test('remove member removes user from workspace', function () {
     expect($this->workspace->hasMember($member))->toBeFalse();
 });
 
+test('remove member deletes stranded members', function () {
+    [
+        'member' => $member,
+    ] = strandedMemberOnSharedAccount(
+        owner: $this->user,
+        setMemberCurrent: false,
+    );
+    $member->update(['current_workspace_id' => $this->workspace->id]);
+    $this->workspace->members()->attach($member->id, ['role' => WorkspaceRole::Member->value]);
+
+    $this->actingAs($this->user)->delete(route('app.members.remove', $member));
+
+    expect($this->workspace->hasMember($member))->toBeFalse();
+    expect(User::find($member->id))->toBeNull();
+});
+
 test('remove member fails for owner', function () {
     $response = $this->actingAs($this->user)->delete(route('app.members.remove', $this->user));
 
@@ -274,6 +306,9 @@ test('update role changes admin to member', function () {
         'account_id' => $this->account->id,
     ]);
     $this->workspace->members()->attach($member->id, ['role' => WorkspaceRole::Admin->value]);
+    $result = $member->createToken('Admin Key');
+    $token = AccessToken::query()->findOrFail($result->token->id);
+    $token->forceFill(['workspace_id' => $this->workspace->id])->saveQuietly();
 
     $response = $this->actingAs($this->user)->put(route('app.members.update-role', $member), [
         'role' => WorkspaceRole::Member->value,
@@ -281,6 +316,57 @@ test('update role changes admin to member', function () {
 
     $response->assertRedirect();
     expect($this->workspace->members()->where('user_id', $member->id)->first()->pivot->role)->toBe(WorkspaceRole::Member->value);
+    expect($token->fresh()->revoked)->toBeTrue();
+});
+
+test('demoting a member to viewer keeps their mcp oauth grants', function () {
+    $member = User::factory()->create([
+        'account_id' => $this->account->id,
+    ]);
+    $this->workspace->members()->attach($member->id, ['role' => WorkspaceRole::Member->value]);
+    $member->update(['current_workspace_id' => $this->workspace->id]);
+
+    $oauth = mcpAccessToken($member, mcpOauthClient(), $this->workspace);
+    $refreshTokenId = (string) Str::uuid();
+    DB::table('oauth_refresh_tokens')->insert([
+        'id' => $refreshTokenId,
+        'access_token_id' => $oauth->id,
+        'revoked' => false,
+        'expires_at' => now()->addDay(),
+    ]);
+
+    $response = $this->actingAs($this->user)->put(route('app.members.update-role', $member), [
+        'role' => WorkspaceRole::Viewer->value,
+    ]);
+
+    $response->assertRedirect();
+    expect($oauth->fresh()->revoked)->toBeFalse()
+        ->and(DB::table('oauth_refresh_tokens')->where('id', $refreshTokenId)->value('revoked'))->toBeFalse()
+        ->and($member->fresh()->can('createPost', $this->workspace))->toBeFalse()
+        ->and($member->fresh()->can('view', $this->workspace))->toBeTrue();
+});
+
+test('demoting to viewer on one workspace keeps mcp when they remain a member elsewhere', function () {
+    $member = User::factory()->create([
+        'account_id' => $this->account->id,
+    ]);
+    $other = Workspace::factory()->create([
+        'user_id' => $this->user->id,
+        'account_id' => $this->account->id,
+    ]);
+    $this->workspace->members()->attach($member->id, ['role' => WorkspaceRole::Member->value]);
+    $other->members()->attach($member->id, ['role' => WorkspaceRole::Member->value]);
+    $member->update(['current_workspace_id' => $this->workspace->id]);
+    $oauth = mcpAccessToken($member, mcpOauthClient(), $this->workspace);
+
+    $response = $this->actingAs($this->user)->put(route('app.members.update-role', $member), [
+        'role' => WorkspaceRole::Viewer->value,
+    ]);
+
+    $response->assertRedirect();
+    expect($oauth->fresh()->revoked)->toBeFalse()
+        ->and($member->fresh()->can('createPost', $other))->toBeTrue()
+        ->and($member->fresh()->can('createPost', $this->workspace))->toBeFalse();
 });
 
 test('update role fails for workspace owner', function () {

@@ -73,6 +73,8 @@ return [
         'page_title' => 'Giriş yap',
         'email' => 'E-posta adresi',
         'password' => 'Parola',
+        'show_password' => 'Parolayı göster',
+        'hide_password' => 'Parolayı gizle',
         'forgot_password' => 'Parolanızı mı unuttunuz?',
         'remember_me' => 'Beni hatırla',
         'submit' => 'Giriş yap',
@@ -138,6 +140,9 @@ return [
         'login_prompt' => 'Bu daveti kabul etmek için giriş yapın veya bir hesap oluşturun.',
         'log_in' => 'Giriş yap',
         'create_account' => 'Hesap Oluştur',
+        'expired_title' => 'Bu davet artık geçerli değil',
+        'expired_description' => 'Bu davetin çalışma alanı silindi. Hâlâ erişime ihtiyacınız varsa hesap sahibinden yeni bir davet isteyin.',
+        'expired_action' => 'Ana sayfaya git',
     ],
 
 ];

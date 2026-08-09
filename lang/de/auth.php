@@ -73,6 +73,8 @@ return [
         'page_title' => 'Anmelden',
         'email' => 'E-Mail-Adresse',
         'password' => 'Passwort',
+        'show_password' => 'Passwort anzeigen',
+        'hide_password' => 'Passwort verbergen',
         'forgot_password' => 'Passwort vergessen?',
         'remember_me' => 'Angemeldet bleiben',
         'submit' => 'Anmelden',
@@ -138,6 +140,9 @@ return [
         'login_prompt' => 'Melde dich an oder erstelle ein Konto, um diese Einladung anzunehmen.',
         'log_in' => 'Anmelden',
         'create_account' => 'Konto erstellen',
+        'expired_title' => 'Diese Einladung ist nicht mehr gültig',
+        'expired_description' => 'Der Workspace für diese Einladung wurde gelöscht. Bitte den Kontoinhaber um eine neue Einladung, falls du weiterhin Zugriff brauchst.',
+        'expired_action' => 'Zur Startseite',
     ],
 
 ];

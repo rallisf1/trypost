@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
-import { computed } from 'vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import SettingsTabsNav from '@/components/settings/SettingsTabsNav.vue';
 import WorkspaceTab from '@/components/settings/WorkspaceTab.vue';
+import { useWorkspaceSettingsTabs } from '@/composables/useWorkspaceSettingsTabs';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { members as membersRoute } from '@/routes/app';
-import { index as apiKeysRoute } from '@/routes/app/api-keys';
-import { brand as brandRoute, settings as workspaceSettings } from '@/routes/app/workspace';
 
 interface Workspace {
     id: string;
@@ -24,14 +20,11 @@ interface Workspace {
 
 defineProps<{
     workspace: Workspace;
+    isOnlyWorkspace: boolean;
+    otherMemberCount: number;
 }>();
 
-const tabs = computed(() => [
-    { name: 'workspace', label: trans('settings.workspace.tabs.workspace'), href: workspaceSettings.url() },
-    { name: 'brand', label: trans('settings.workspace.tabs.brand'), href: brandRoute.url() },
-    { name: 'members', label: trans('settings.workspace.tabs.users'), href: membersRoute.url() },
-    { name: 'api-keys', label: trans('settings.workspace.tabs.api_keys'), href: apiKeysRoute.url() },
-]);
+const tabs = useWorkspaceSettingsTabs();
 </script>
 
 <template>
@@ -42,11 +35,15 @@ const tabs = computed(() => [
             <PageHeader
                 :title="$t('settings.hub.title')"
                 :description="$t('settings.hub.description')"
-                />
+            />
 
             <SettingsTabsNav :tabs="tabs" active="workspace" />
 
-            <WorkspaceTab :workspace="workspace" />
+            <WorkspaceTab
+                :workspace="workspace"
+                :is-only-workspace="isOnlyWorkspace"
+                :other-member-count="otherMemberCount"
+            />
         </div>
     </AppLayout>
 </template>

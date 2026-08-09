@@ -71,6 +71,8 @@ return [
         'page_title' => 'Zaloguj się',
         'email' => 'Adres e-mail',
         'password' => 'Hasło',
+        'show_password' => 'Pokaż hasło',
+        'hide_password' => 'Ukryj hasło',
         'forgot_password' => 'Nie pamiętasz hasła?',
         'remember_me' => 'Zapamiętaj mnie',
         'submit' => 'Zaloguj się',
@@ -136,6 +138,9 @@ return [
         'login_prompt' => 'Zaloguj się lub załóż konto, aby zaakceptować to zaproszenie.',
         'log_in' => 'Zaloguj się',
         'create_account' => 'Utwórz konto',
+        'expired_title' => 'To zaproszenie jest już nieważne',
+        'expired_description' => 'Przestrzeń robocza z tego zaproszenia została usunięta. Poproś właściciela konta o nowe zaproszenie, jeśli nadal potrzebujesz dostępu.',
+        'expired_action' => 'Przejdź do strony głównej',
     ],
 
 ];

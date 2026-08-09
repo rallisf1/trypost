@@ -71,6 +71,8 @@ return [
         'page_title' => 'Entrar',
         'email' => 'Endereço de email',
         'password' => 'Senha',
+        'show_password' => 'Mostrar senha',
+        'hide_password' => 'Esconder senha',
         'forgot_password' => 'Esqueceu a senha?',
         'remember_me' => 'Lembrar de mim',
         'submit' => 'Entrar',
@@ -136,6 +138,9 @@ return [
         'login_prompt' => 'Entre ou crie uma conta para aceitar este convite.',
         'log_in' => 'Entrar',
         'create_account' => 'Criar Conta',
+        'expired_title' => 'Este convite não é mais válido',
+        'expired_description' => 'O workspace deste convite foi excluído. Peça ao dono da conta um novo convite se ainda precisar de acesso.',
+        'expired_action' => 'Ir para o início',
     ],
 
 ];

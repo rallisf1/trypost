@@ -71,6 +71,8 @@ return [
         'page_title' => '登录',
         'email' => '邮箱地址',
         'password' => '密码',
+        'show_password' => '显示密码',
+        'hide_password' => '隐藏密码',
         'forgot_password' => '忘记密码？',
         'remember_me' => '记住我',
         'submit' => '登录',
@@ -136,6 +138,9 @@ return [
         'login_prompt' => '登录或创建账户以接受此邀请。',
         'log_in' => '登录',
         'create_account' => '创建账户',
+        'expired_title' => '此邀请已失效',
+        'expired_description' => '该邀请对应的工作区已被删除。如仍需访问，请向账户所有者索取新邀请。',
+        'expired_action' => '返回首页',
     ],
 
 ];
