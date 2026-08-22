@@ -9,7 +9,6 @@ use App\Enums\Workspace\ContentLanguage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 class BrandAnalyzer implements Agent, HasStructuredOutput
@@ -27,6 +26,7 @@ class BrandAnalyzer implements Agent, HasStructuredOutput
         ])->render();
     }
 
+<<<<<<< HEAD
     public function provider(): Lab
     {
         return match (config('ai.default')) {
@@ -42,6 +42,8 @@ class BrandAnalyzer implements Agent, HasStructuredOutput
         return config('ai.default_text_model');
     }
 
+=======
+>>>>>>> main
     public function schema(JsonSchema $schema): array
     {
         return [

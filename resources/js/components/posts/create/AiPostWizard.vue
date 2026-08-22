@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useHttp } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import {
     IconArrowLeft,
     IconCheck,
@@ -8,8 +8,6 @@ import { trans } from 'laravel-vue-i18n';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 
-
-import { start as startRoute } from '@/actions/App/Http/Controllers/App/PostAiCreateController';
 import ContentStylePicker from '@/components/ai/ContentStylePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -17,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { getPlatformLogo } from '@/composables/usePlatformLogo';
 import { loading as loadingRoute } from '@/routes/app/posts/ai';
+import type { AiTemplate } from '@/types';
 import { ContentType, type ContentTypeValue } from '@/types/content-type';
 
 interface SocialAccount {
@@ -26,16 +25,6 @@ interface SocialAccount {
     username: string;
     display_label: string;
     avatar_url: string | null;
-}
-
-interface AiTemplate {
-    key: string;
-    name: string;
-    description: string;
-    preview: string;
-    needs_account: boolean;
-    supported_formats: string[];
-    applies_brand_visuals: boolean;
 }
 
 interface Props {
@@ -72,16 +61,6 @@ const PROMPT_MIN = 3;
 const PROMPT_MAX = 2000;
 
 const submitting = ref(false);
-
-const httpStart = useHttp<{
-    format: string | null;
-    social_account_id: string | null;
-    image_count: number;
-    prompt: string;
-    date: string | null;
-    template: string;
-    apply_brand_visuals: boolean;
-}>({ format: null, social_account_id: null, image_count: 0, prompt: '', date: null, template: 'image_card', apply_brand_visuals: true });
 
 const AI_FORMATS: Array<{ value: AiFormat; platforms: string[] }> = [
     { value: ContentType.InstagramFeed, platforms: ['instagram', 'instagram-facebook'] },
@@ -207,36 +186,31 @@ const goBack = () => {
     emit('cancel');
 };
 
-const startGeneration = async () => {
+const startGeneration = () => {
     if (!canSubmit.value || submitting.value) return;
 
     submitting.value = true;
 
-    httpStart.format = selectedFormat.value;
-    httpStart.social_account_id = selectedAccountId.value;
-    httpStart.image_count = submittedImageCount.value;
-    httpStart.prompt = promptText.value.trim();
-    httpStart.date = props.date;
-    httpStart.template = resolvedTemplate.value;
-    httpStart.apply_brand_visuals = useBrandColors.value;
-
-    try {
-        const data = await httpStart.post(startRoute.url()) as { creation_id: string; channel: string };
-
-        router.visit(loadingRoute(
-            { creationId: data.creation_id },
+    router.visit(
+        loadingRoute(
+            { creationId: crypto.randomUUID() },
             {
                 query: {
                     images: String(submittedImageCount.value),
                     format: selectedFormat.value ?? '',
                     prompt: promptText.value.trim(),
+                    social_account_id: selectedAccountId.value ?? '',
+                    date: props.date ?? '',
+                    template: resolvedTemplate.value,
+                    apply_brand_visuals: useBrandColors.value ? '1' : '0',
                 },
             },
-        ).url);
-    } catch (err: any) {
-        toast.error(err?.response?.data?.message ?? trans('posts.create.steps.preview_error'));
-        submitting.value = false;
-    }
+        ).url,
+        {
+            onError: () => toast.error(trans('posts.create.steps.preview_error')),
+            onFinish: () => { submitting.value = false; },
+        },
+    );
 };
 
 </script>

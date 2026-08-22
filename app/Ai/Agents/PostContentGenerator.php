@@ -9,12 +9,10 @@ use App\Ai\Templates\AiContentTemplate;
 use App\Ai\Templates\TemplateContext;
 use App\Enums\Ai\GeneratorFormat;
 use App\Models\Workspace;
-use App\Services\Ai\TemplateContextResolver;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 #[Temperature(0.7)]
@@ -36,20 +34,6 @@ class PostContentGenerator implements Agent, HasStructuredOutput
 
     public function instructions(): string
     {
-        $examples = [];
-
-        if ($this->platformContext !== null) {
-            $resolver = app(TemplateContextResolver::class);
-            $examples = $resolver->relevantFor($this->platformContext, 2)
-                ->map(fn ($t) => [
-                    'name' => $t->name,
-                    'description' => $t->description,
-                    'content' => $t->content,
-                    'slides' => $t->slides,
-                ])
-                ->all();
-        }
-
         $budget = $this->platformCopyBudget($this->platformContext);
 
         if ($this->template?->style()->isTweetCard()) {
@@ -69,10 +53,9 @@ class PostContentGenerator implements Agent, HasStructuredOutput
             'current_content' => $this->currentContent,
             'format' => $this->format->value,
             'slide_count' => $this->slideCount,
-            'examples' => $examples,
-            'hard_max_chars' => $budget['hard_max_chars'],
-            'target_chars' => $budget['target_chars'],
-            'platform_label' => $budget['platform_label'],
+            'hard_max_chars' => data_get($budget, 'hard_max_chars'),
+            'target_chars' => data_get($budget, 'target_chars'),
+            'platform_label' => data_get($budget, 'platform_label'),
         ])->render();
     }
 
@@ -108,20 +91,5 @@ class PostContentGenerator implements Agent, HasStructuredOutput
             'image_body' => $schema->string()->description('1-2 short sentences (max 25 words) overlaid below the image_title. Expands the hook just enough to compel reading the caption.')->required(),
             'image_keywords' => $schema->array()->items($schema->string())->description('2-4 search keywords for Unsplash for the single image.')->required(),
         ];
-    }
-
-    public function provider(): Lab
-    {
-        return match (config('ai.default')) {
-            'openai' => Lab::OpenAI,
-            'anthropic' => Lab::Anthropic,
-            'openrouter' => Lab::OpenRouter,
-            default => Lab::Gemini,
-        };
-    }
-
-    public function model(): string
-    {
-        return config('ai.default_text_model');
     }
 }
